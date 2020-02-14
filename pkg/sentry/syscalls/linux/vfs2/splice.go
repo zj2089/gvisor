@@ -22,6 +22,7 @@ import (
 	"gvisor.dev/gvisor/pkg/sentry/vfs"
 	"gvisor.dev/gvisor/pkg/syserror"
 	"gvisor.dev/gvisor/pkg/waiter"
+	"gvisor.dev/gvisor/tools/go_marshal/primitive"
 )
 
 // Splice implements Linux syscall splice(2).
@@ -85,7 +86,7 @@ func Splice(t *kernel.Task, args arch.SyscallArguments) (uintptr, *kernel.Syscal
 		if inFile.Options().DenyPRead {
 			return 0, nil, syserror.EINVAL
 		}
-		if _, err := t.CopyIn(inOffsetPtr, &inOffset); err != nil {
+		if _, err := primitive.CopyInt64In(t, inOffsetPtr, &inOffset); err != nil {
 			return 0, nil, err
 		}
 		if inOffset < 0 {
@@ -100,7 +101,7 @@ func Splice(t *kernel.Task, args arch.SyscallArguments) (uintptr, *kernel.Syscal
 		if outFile.Options().DenyPWrite {
 			return 0, nil, syserror.EINVAL
 		}
-		if _, err := t.CopyIn(outOffsetPtr, &outOffset); err != nil {
+		if _, err := primitive.CopyInt64In(t, outOffsetPtr, &outOffset); err != nil {
 			return 0, nil, err
 		}
 		if outOffset < 0 {
@@ -174,12 +175,12 @@ func Splice(t *kernel.Task, args arch.SyscallArguments) (uintptr, *kernel.Syscal
 
 	// Copy updated offsets out.
 	if inOffsetPtr != 0 {
-		if _, err := t.CopyOut(inOffsetPtr, &inOffset); err != nil {
+		if _, err := primitive.CopyInt64Out(t, inOffsetPtr, inOffset); err != nil {
 			return 0, nil, err
 		}
 	}
 	if outOffsetPtr != 0 {
-		if _, err := t.CopyOut(outOffsetPtr, &outOffset); err != nil {
+		if _, err := primitive.CopyInt64Out(t, outOffsetPtr, outOffset); err != nil {
 			return 0, nil, err
 		}
 	}

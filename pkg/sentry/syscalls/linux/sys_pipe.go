@@ -22,6 +22,7 @@ import (
 	"gvisor.dev/gvisor/pkg/sentry/kernel/pipe"
 	"gvisor.dev/gvisor/pkg/syserror"
 	"gvisor.dev/gvisor/pkg/usermem"
+	"gvisor.dev/gvisor/tools/go_marshal/primitive"
 )
 
 // LINT.IfChange
@@ -46,7 +47,7 @@ func pipe2(t *kernel.Task, addr usermem.Addr, flags uint) (uintptr, error) {
 		return 0, err
 	}
 
-	if _, err := t.CopyOut(addr, fds); err != nil {
+	if _, err := primitive.CopyInt32SliceOut(t, addr, fds); err != nil {
 		for _, fd := range fds {
 			if file, _ := t.FDTable().Remove(fd); file != nil {
 				file.DecRef()

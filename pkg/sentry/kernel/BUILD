@@ -209,6 +209,7 @@ go_library(
         "//pkg/usermem",
         "//pkg/waiter",
         "//tools/go_marshal/marshal",
+        "//tools/go_marshal/primitive",
     ],
 )
 

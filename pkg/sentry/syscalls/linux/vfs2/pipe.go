@@ -22,6 +22,7 @@ import (
 	"gvisor.dev/gvisor/pkg/sentry/vfs"
 	"gvisor.dev/gvisor/pkg/syserror"
 	"gvisor.dev/gvisor/pkg/usermem"
+	"gvisor.dev/gvisor/tools/go_marshal/primitive"
 )
 
 // Pipe implements Linux syscall pipe(2).
@@ -51,7 +52,7 @@ func pipe2(t *kernel.Task, addr usermem.Addr, flags int32) error {
 	if err != nil {
 		return err
 	}
-	if _, err := t.CopyOut(addr, fds); err != nil {
+	if _, err := primitive.CopyInt32SliceOut(t, addr, fds); err != nil {
 		for _, fd := range fds {
 			if _, file := t.FDTable().Remove(fd); file != nil {
 				file.DecRef()

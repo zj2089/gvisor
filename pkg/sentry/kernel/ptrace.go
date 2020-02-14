@@ -22,6 +22,7 @@ import (
 	"gvisor.dev/gvisor/pkg/sentry/mm"
 	"gvisor.dev/gvisor/pkg/syserror"
 	"gvisor.dev/gvisor/pkg/usermem"
+	"gvisor.dev/gvisor/tools/go_marshal/primitive"
 )
 
 // ptraceOptions are the subset of options controlling a task's ptrace behavior
@@ -1065,12 +1066,12 @@ func (t *Task) Ptrace(req int64, pid ThreadID, addr, data usermem.Addr) error {
 		if target.ptraceSiginfo == nil {
 			return syserror.EINVAL
 		}
-		_, err := t.CopyOut(data, target.ptraceSiginfo)
+		_, err := target.ptraceSiginfo.CopyOut(t, data)
 		return err
 
 	case linux.PTRACE_SETSIGINFO:
 		var info arch.SignalInfo
-		if _, err := t.CopyIn(data, &info); err != nil {
+		if _, err := info.CopyIn(t, data); err != nil {
 			return err
 		}
 		t.tg.pidns.owner.mu.RLock()
@@ -1085,7 +1086,8 @@ func (t *Task) Ptrace(req int64, pid ThreadID, addr, data usermem.Addr) error {
 		if addr != linux.SignalSetSize {
 			return syserror.EINVAL
 		}
-		_, err := t.CopyOut(data, target.SignalMask())
+		mask := target.SignalMask()
+		_, err := mask.CopyOut(t, data)
 		return err
 
 	case linux.PTRACE_SETSIGMASK:
@@ -1093,7 +1095,7 @@ func (t *Task) Ptrace(req int64, pid ThreadID, addr, data usermem.Addr) error {
 			return syserror.EINVAL
 		}
 		var mask linux.SignalSet
-		if _, err := t.CopyIn(data, &mask); err != nil {
+		if _, err := mask.CopyIn(t, data); err != nil {
 			return err
 		}
 		// The target's task goroutine is stopped, so this is safe:
@@ -1108,7 +1110,7 @@ func (t *Task) Ptrace(req int64, pid ThreadID, addr, data usermem.Addr) error {
 	case linux.PTRACE_GETEVENTMSG:
 		t.tg.pidns.owner.mu.RLock()
 		defer t.tg.pidns.owner.mu.RUnlock()
-		_, err := t.CopyOut(usermem.Addr(data), target.ptraceEventMsg)
+		_, err := primitive.CopyUint64Out(t, usermem.Addr(data), target.ptraceEventMsg)
 		return err
 
 	// PEEKSIGINFO is unimplemented but seems to have no users anywhere.
