@@ -16,6 +16,18 @@ go_template_instance(
 )
 
 go_template_instance(
+    name = "neighbor_entry_list",
+    out = "neighbor_entry_list.go",
+    package = "stack",
+    prefix = "neighborEntry",
+    template = "//pkg/ilist:generic_list",
+    types = {
+        "Element": "*neighborEntry",
+        "Linker": "*neighborEntry",
+    },
+)
+
+go_template_instance(
     name = "packet_buffer_list",
     out = "packet_buffer_list.go",
     package = "stack",
@@ -40,7 +52,12 @@ go_library(
         "linkaddrcache.go",
         "linkaddrentry_list.go",
         "ndp.go",
+        "neighbor_cache.go",
+        "neighbor_entry.go",
+        "neighbor_entry_list.go",
+        "neighborstate_string.go",
         "nic.go",
+        "nud.go",
         "packet_buffer.go",
         "packet_buffer_list.go",
         "rand.go",
@@ -75,6 +92,7 @@ go_test(
     size = "medium",
     srcs = [
         "ndp_test.go",
+        "nud_test.go",
         "stack_test.go",
         "transport_demuxer_test.go",
         "transport_test.go",
@@ -104,6 +122,8 @@ go_test(
     srcs = [
         "forwarder_test.go",
         "linkaddrcache_test.go",
+        "neighbor_cache_test.go",
+        "neighbor_entry_test.go",
         "nic_test.go",
     ],
     library = ":stack",
@@ -113,5 +133,7 @@ go_test(
         "//pkg/tcpip",
         "//pkg/tcpip/buffer",
         "//pkg/tcpip/header",
+        "@com_github_google_go-cmp//cmp:go_default_library",
+        "@com_github_google_go-cmp//cmp/cmpopts:go_default_library",
     ],
 )
