@@ -549,6 +549,22 @@ type Endpoint interface {
 	SetOwner(owner PacketOwner)
 }
 
+// LinkPacketInfo holds Link layer information for a received packet.
+type LinkPacketInfo struct {
+	// Protocol is the NetworkProtocolNumber for the packet.
+	Protocol NetworkProtocolNumber
+}
+
+// PacketEndpoint is the interface implemented by Packet endpoints.
+type PacketEndpoint interface {
+	// ReadPacket reads a datagram/packet from the endpoint and optionally returns the sender and additional
+	// LinkPacketInfo.
+	//
+	// This method does not block if there is no data pending. It will also
+	// either return an error or data, never both.
+	ReadPacket(*FullAddress, *LinkPacketInfo) (buffer.View, ControlMessages, *Error)
+}
+
 // EndpointInfo is the interface implemented by each endpoint info struct.
 type EndpointInfo interface {
 	// IsEndpointInfo is an empty method to implement the tcpip.EndpointInfo
