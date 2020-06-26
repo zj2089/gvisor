@@ -307,46 +307,59 @@ func (fd *regularFileFD) Read(ctx context.Context, dst usermem.IOSequence, opts 
 
 // PWrite implements vfs.FileDescriptionImpl.PWrite.
 func (fd *regularFileFD) PWrite(ctx context.Context, src usermem.IOSequence, offset int64, opts vfs.WriteOptions) (int64, error) {
+	n, _, err := fd.pwrite(ctx, src, offset, opts)
+	return n, err
+}
+
+// pwrite returns the number of bytes written, final offset and error.
+func (fd *regularFileFD) pwrite(ctx context.Context, src usermem.IOSequence, offset int64, opts vfs.WriteOptions) (int64, int64, error) {
 	if offset < 0 {
-		return 0, syserror.EINVAL
+		return 0, offset, syserror.EINVAL
 	}
 
 	// Check that flags are supported. Silently ignore RWF_HIPRI.
 	if opts.Flags&^linux.RWF_HIPRI != 0 {
-		return 0, syserror.EOPNOTSUPP
+		return 0, offset, syserror.EOPNOTSUPP
 	}
 
 	srclen := src.NumBytes()
 	if srclen == 0 {
-		return 0, nil
+		return 0, offset, nil
 	}
 	f := fd.inode().impl.(*regularFile)
+	f.inode.mu.Lock()
+	// If the file is opened with O_APPEND, update offset to file size.
+	if fd.vfsfd.IsAppendOnly() {
+		// Locking f.inode.mu is sufficient for reading f.size.
+		offset = int64(f.size)
+	}
 	if end := offset + srclen; end < offset {
 		// Overflow.
-		return 0, syserror.EINVAL
+		f.inode.mu.Unlock()
+		return 0, offset, syserror.EINVAL
 	}
 
 	var err error
 	srclen, err = vfs.CheckLimit(ctx, offset, srclen)
 	if err != nil {
-		return 0, err
+		f.inode.mu.Unlock()
+		return 0, offset, err
 	}
 	src = src.TakeFirst64(srclen)
 
-	f.inode.mu.Lock()
 	rw := getRegularFileReadWriter(f, offset)
 	n, err := src.CopyInTo(ctx, rw)
-	fd.inode().touchCMtimeLocked()
+	f.inode.touchCMtimeLocked()
 	f.inode.mu.Unlock()
 	putRegularFileReadWriter(rw)
-	return n, err
+	return n, n + offset, err
 }
 
 // Write implements vfs.FileDescriptionImpl.Write.
 func (fd *regularFileFD) Write(ctx context.Context, src usermem.IOSequence, opts vfs.WriteOptions) (int64, error) {
 	fd.offMu.Lock()
-	n, err := fd.PWrite(ctx, src, fd.off, opts)
-	fd.off += n
+	n, off, err := fd.pwrite(ctx, src, fd.off, opts)
+	fd.off = off
 	fd.offMu.Unlock()
 	return n, err
 }
