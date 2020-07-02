@@ -182,11 +182,11 @@ type bucket struct {
 func packetToTupleID(pkt *PacketBuffer) (tupleID, *tcpip.Error) {
 	// TODO(gvisor.dev/issue/170): Need to support for other
 	// protocols as well.
-	netHeader := header.IPv4(pkt.NetworkHeader)
+	netHeader := header.IPv4(pkt.NetworkHeader.View())
 	if netHeader == nil || netHeader.TransportProtocol() != header.TCPProtocolNumber {
 		return tupleID{}, tcpip.ErrUnknownProtocol
 	}
-	tcpHeader := header.TCP(pkt.TransportHeader)
+	tcpHeader := header.TCP(pkt.TransportHeader.View())
 	if tcpHeader == nil {
 		return tupleID{}, tcpip.ErrUnknownProtocol
 	}
@@ -305,8 +305,8 @@ func (ct *ConnTrack) createConnFor(pkt *PacketBuffer, hook Hook, rt RedirectTarg
 // handlePacketPrerouting manipulates ports for packets in Prerouting hook.
 // TODO(gvisor.dev/issue/170): Change address for Prerouting hook.
 func handlePacketPrerouting(pkt *PacketBuffer, conn *conn, dir direction) {
-	netHeader := header.IPv4(pkt.NetworkHeader)
-	tcpHeader := header.TCP(pkt.TransportHeader)
+	netHeader := header.IPv4(pkt.NetworkHeader.View())
+	tcpHeader := header.TCP(pkt.TransportHeader.View())
 
 	// For prerouting redirection, packets going in the original direction
 	// have their destinations modified and replies have their sources
@@ -328,8 +328,8 @@ func handlePacketPrerouting(pkt *PacketBuffer, conn *conn, dir direction) {
 
 // handlePacketOutput manipulates ports for packets in Output hook.
 func handlePacketOutput(pkt *PacketBuffer, conn *conn, gso *GSO, r *Route, dir direction) {
-	netHeader := header.IPv4(pkt.NetworkHeader)
-	tcpHeader := header.TCP(pkt.TransportHeader)
+	netHeader := header.IPv4(pkt.NetworkHeader.View())
+	tcpHeader := header.TCP(pkt.TransportHeader.View())
 
 	// For output redirection, packets going in the original direction
 	// have their destinations modified and replies have their sources
@@ -347,8 +347,7 @@ func handlePacketOutput(pkt *PacketBuffer, conn *conn, gso *GSO, r *Route, dir d
 
 	// Calculate the TCP checksum and set it.
 	tcpHeader.SetChecksum(0)
-	hdr := &pkt.Header
-	length := uint16(pkt.Data.Size()+hdr.UsedLength()) - uint16(netHeader.HeaderLength())
+	length := uint16(pkt.Size()) - uint16(netHeader.HeaderLength())
 	xsum := r.PseudoHeaderChecksum(header.TCPProtocolNumber, length)
 	if gso != nil && gso.NeedsCsum {
 		tcpHeader.SetChecksum(xsum)
@@ -395,7 +394,7 @@ func (ct *ConnTrack) handlePacket(pkt *PacketBuffer, hook Hook, gso *GSO, r *Rou
 	// Mark the connection as having been used recently so it isn't reaped.
 	conn.lastUsed = time.Now()
 	// Update connection state.
-	if tcpHeader := header.TCP(pkt.TransportHeader); conn.tcb.IsEmpty() {
+	if tcpHeader := header.TCP(pkt.TransportHeader.View()); conn.tcb.IsEmpty() {
 		conn.tcb.Init(tcpHeader)
 		conn.tcbHook = hook
 	} else if hook == conn.tcbHook {
