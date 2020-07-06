@@ -73,6 +73,16 @@ type TCPCubicState struct {
 	WEst                    float64
 }
 
+// TCPRackState is used to hold a copy of the internal rack state when the
+// TCPProbeFunc is invoked.
+type TCPRackState struct {
+	XmitTime    int64
+	EndSequence seqnum.Value
+	Fack        seqnum.Value
+	Rtt         time.Duration
+	Reord       bool
+}
+
 // TCPEndpointID is the unique 4 tuple that identifies a given endpoint.
 type TCPEndpointID struct {
 	// LocalPort is the local port associated with the endpoint.
@@ -212,6 +222,9 @@ type TCPSenderState struct {
 
 	// Cubic holds the state related to CUBIC congestion control.
 	Cubic TCPCubicState
+
+	// Rack holds the state related to RACK loss detection algorithm.
+	Rack TCPRackState
 }
 
 // TCPSACKInfo holds TCP SACK related information for a given TCP endpoint.

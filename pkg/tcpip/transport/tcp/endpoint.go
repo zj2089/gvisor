@@ -2813,6 +2813,16 @@ func (e *endpoint) completeState() stack.TCPEndpointState {
 			WEst:                    cubic.wEst,
 		}
 	}
+
+	if rc := e.snd.rc; rc != nil {
+		s.Sender.Rack = stack.TCPRackState{
+			XmitTime:    rc.xmitTime,
+			EndSequence: rc.endSequence,
+			Fack:        rc.fack,
+			Rtt:         rc.rtt,
+			Reord:       rc.reord,
+		}
+	}
 	return s
 }
 

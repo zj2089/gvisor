@@ -191,6 +191,10 @@ type sender struct {
 
 	// cc is the congestion control algorithm in use for this sender.
 	cc congestionControl
+
+	// rc has the fields needed for implementing RACK loss detection
+	// algorithm.
+	rc *rackControl
 }
 
 // rtt is a synchronization wrapper used to appease stateify. See the comment
@@ -267,6 +271,8 @@ func newSender(ep *endpoint, iss, irs seqnum.Value, sndWnd seqnum.Size, mss uint
 	}
 
 	s.cc = s.initCongestionControl(ep.cc)
+
+	s.rc = &rackControl{}
 
 	// A negative sndWndScale means that no scaling is in use, otherwise we
 	// store the scaling value.
@@ -1361,6 +1367,9 @@ func (s *sender) handleRcvdSegment(seg *segment) {
 
 		ackLeft := acked
 		originalOutstanding := s.outstanding
+		s.rtt.Lock()
+		srtt := s.rtt.srtt
+		s.rtt.Unlock()
 		for ackLeft > 0 {
 			// We use logicalLen here because we can have FIN
 			// segments (which are always at the end of list) that
@@ -1378,6 +1387,11 @@ func (s *sender) handleRcvdSegment(seg *segment) {
 
 			if s.writeNext == seg {
 				s.writeNext = seg.Next()
+			}
+
+			// Update the RACK fields if SACK is enabled.
+			if s.ep.sackPermitted {
+				s.rc.Update(seg, srtt, s.ep.sendTSOk)
 			}
 
 			s.writeList.Remove(seg)
