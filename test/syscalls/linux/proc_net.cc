@@ -477,6 +477,32 @@ TEST(ProcNetSnmp, CheckSnmp) {
   EXPECT_EQ(value_count, 1);
 }
 
+TEST(ProcSysNetIpv4Recovery, Exists) {
+  EXPECT_THAT(open("/proc/sys/net/ipv4/tcp_recovery", O_RDONLY),
+              SyscallSucceeds());
+}
+
+TEST(ProcSysNetIpv4Recovery, CanReadAndWrite) {
+  SKIP_IF(!ASSERT_NO_ERRNO_AND_VALUE(HaveCapability((CAP_DAC_OVERRIDE))));
+
+  auto const fd = ASSERT_NO_ERRNO_AND_VALUE(
+      Open("/proc/sys/net/ipv4/tcp_recovery", O_RDWR));
+
+  char buf;
+  EXPECT_THAT(PreadFd(fd.get(), &buf, sizeof(buf), 0),
+              SyscallSucceedsWithValue(sizeof(buf)));
+
+  EXPECT_TRUE(buf == '0') << "unexpected tcp_recovery: " << buf;
+
+  char to_write = '1';
+  EXPECT_THAT(PwriteFd(fd.get(), &to_write, sizeof(to_write), 0),
+              SyscallSucceedsWithValue(sizeof(to_write)));
+
+  buf = 0;
+  EXPECT_THAT(PreadFd(fd.get(), &buf, sizeof(buf), 0),
+              SyscallSucceedsWithValue(sizeof(buf)));
+  EXPECT_EQ(buf, to_write);
+}
 }  // namespace
 }  // namespace testing
 }  // namespace gvisor

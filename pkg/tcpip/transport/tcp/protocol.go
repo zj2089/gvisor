@@ -80,6 +80,10 @@ const (
 // enable/disable SACK support in TCP. See: https://tools.ietf.org/html/rfc2018.
 type SACKEnabled bool
 
+// Recovery is used by stack.(*Stack).TransportProtocolOption to
+// set loss detection algorithm in TCP.
+type Recovery int32
+
 // DelayEnabled is used by stack.(Stack*).TransportProtocolOption to
 // enable/disable Nagle's algorithm in TCP.
 type DelayEnabled bool
@@ -161,6 +165,7 @@ func (s *synRcvdCounter) Threshold() uint64 {
 type protocol struct {
 	mu                         sync.RWMutex
 	sackEnabled                bool
+	recovery                   int32
 	delayEnabled               bool
 	sendBufferSize             SendBufferSizeOption
 	recvBufferSize             ReceiveBufferSizeOption
@@ -280,6 +285,12 @@ func (p *protocol) SetOption(option interface{}) *tcpip.Error {
 		p.mu.Unlock()
 		return nil
 
+	case Recovery:
+		p.mu.Lock()
+		p.recovery = int32(v)
+		p.mu.Unlock()
+		return nil
+
 	case DelayEnabled:
 		p.mu.Lock()
 		p.delayEnabled = bool(v)
@@ -391,6 +402,12 @@ func (p *protocol) Option(option interface{}) *tcpip.Error {
 	case *SACKEnabled:
 		p.mu.RLock()
 		*v = SACKEnabled(p.sackEnabled)
+		p.mu.RUnlock()
+		return nil
+
+	case *Recovery:
+		p.mu.RLock()
+		*v = Recovery(p.recovery)
 		p.mu.RUnlock()
 		return nil
 

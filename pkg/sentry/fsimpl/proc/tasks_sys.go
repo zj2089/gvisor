@@ -97,6 +97,8 @@ func (fs *filesystem) newSysNetDir(root *auth.Credentials, k *kernel.Kernel) *ke
 				"tcp_synack_retries":        fs.newDentry(root, fs.NextIno(), 0444, newStaticFile("5")),
 				"tcp_syn_retries":           fs.newDentry(root, fs.NextIno(), 0444, newStaticFile("3")),
 				"tcp_timestamps":            fs.newDentry(root, fs.NextIno(), 0444, newStaticFile("1")),
+
+				"tcp_recovery": fs.newDentry(root, fs.NextIno(), 0644, &tcpRecoveryData{stack: stack}),
 			}),
 			"core": kernfs.NewStaticDir(root, linux.UNNAMED_MAJOR, fs.devMinor, fs.NextIno(), 0555, map[string]*kernfs.Dentry{
 				"default_qdisc": fs.newDentry(root, fs.NextIno(), 0444, newStaticFile("pfifo_fast")),
@@ -206,4 +208,56 @@ func (d *tcpSackData) Write(ctx context.Context, src usermem.IOSequence, offset 
 	}
 	*d.enabled = v != 0
 	return n, d.stack.SetTCPSACKEnabled(*d.enabled)
+}
+
+// tcpRecoveryData implements vfs.WritableDynamicBytesSource for
+// /proc/sys/net/ipv4/tcp_recovery.
+//
+// +stateify savable
+type tcpRecoveryData struct {
+	kernfs.DynamicBytesFile
+
+	stack    inet.Stack `state:"wait"`
+	recovery *int32
+}
+
+var _ vfs.WritableDynamicBytesSource = (*tcpRecoveryData)(nil)
+
+// Generate implements vfs.DynamicBytesSource.
+func (d *tcpRecoveryData) Generate(ctx context.Context, buf *bytes.Buffer) error {
+	if d.recovery == nil {
+		recovery, err := d.stack.TCPRecovery()
+		if err != nil {
+			return err
+		}
+		d.recovery = &recovery
+	}
+
+	val := fmt.Sprintf("%d", *d.recovery)
+	buf.WriteString(val)
+	return nil
+}
+
+func (d *tcpRecoveryData) Write(ctx context.Context, src usermem.IOSequence, offset int64) (int64, error) {
+	if offset != 0 {
+		// No need to handle partial writes thus far.
+		return 0, syserror.EINVAL
+	}
+	if src.NumBytes() == 0 {
+		return 0, nil
+	}
+
+	// Limit the amount of memory allocated.
+	src = src.TakeFirst(usermem.PageSize - 1)
+
+	var v int32
+	n, err := usermem.CopyInt32StringInVec(ctx, src.IO, src.Addrs, &v, src.Opts)
+	if err != nil {
+		return n, err
+	}
+	if d.recovery == nil {
+		d.recovery = new(int32)
+	}
+	*d.recovery = v
+	return n, d.stack.SetTCPRecovery(*d.recovery)
 }

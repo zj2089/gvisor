@@ -195,6 +195,18 @@ func (s *Stack) SetTCPSACKEnabled(enabled bool) error {
 	return syserr.TranslateNetstackError(s.Stack.SetTransportProtocolOption(tcp.ProtocolNumber, tcp.SACKEnabled(enabled))).ToError()
 }
 
+// TCPRecovery implements inet.Stack.TCPRecovery.
+func (s *Stack) TCPRecovery() (int32, error) {
+	var recovery tcp.Recovery
+	err := s.Stack.TransportProtocolOption(tcp.ProtocolNumber, &recovery)
+	return int32(recovery), syserr.TranslateNetstackError(err).ToError()
+}
+
+// SetTCPRecovery implements inet.Stack.SetTCPRecovery.
+func (s *Stack) SetTCPRecovery(recovery int32) error {
+	return syserr.TranslateNetstackError(s.Stack.SetTransportProtocolOption(tcp.ProtocolNumber, tcp.Recovery(recovery))).ToError()
+}
+
 // Statistics implements inet.Stack.Statistics.
 func (s *Stack) Statistics(stat interface{}, arg string) error {
 	switch stats := stat.(type) {

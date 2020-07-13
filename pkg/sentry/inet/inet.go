@@ -56,6 +56,12 @@ type Stack interface {
 	// settings.
 	SetTCPSACKEnabled(enabled bool) error
 
+	// TCPRecovery returns the TCP loss detection algorithm.
+	TCPRecovery() (int32, error)
+
+	// SetTCPRecovery attempts to change TCP loss detection algorithm.
+	SetTCPRecovery(recovery int32) error
+
 	// Statistics reports stack statistics.
 	Statistics(stat interface{}, arg string) error
 
