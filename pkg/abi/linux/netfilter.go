@@ -321,6 +321,8 @@ const SizeOfXTRedirectTarget = 56
 
 // IPTGetinfo is the argument for the IPT_SO_GET_INFO sockopt. It corresponds
 // to struct ipt_getinfo in include/uapi/linux/netfilter_ipv4/ip_tables.h.
+//
+// +marshal
 type IPTGetinfo struct {
 	Name       TableName
 	ValidHooks uint32
@@ -336,6 +338,8 @@ const SizeOfIPTGetinfo = 84
 // IPTGetEntries is the argument for the IPT_SO_GET_ENTRIES sockopt. It
 // corresponds to struct ipt_get_entries in
 // include/uapi/linux/netfilter_ipv4/ip_tables.h.
+//
+// +marshal
 type IPTGetEntries struct {
 	Name TableName
 	Size uint32
@@ -392,6 +396,8 @@ func (en ExtensionName) String() string {
 }
 
 // TableName holds the name of a netfilter table.
+//
+// +marshal
 type TableName [XT_TABLE_MAXNAMELEN]byte
 
 // String implements fmt.Stringer.
