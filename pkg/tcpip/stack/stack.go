@@ -1278,13 +1278,18 @@ func (s *Stack) FindRoute(id tcpip.NICID, localAddr, remoteAddr tcpip.Address, n
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	isBroadcast := remoteAddr == header.IPv4Broadcast
+	isLocalBroadcast := remoteAddr == header.IPv4Broadcast
 	isMulticast := header.IsV4MulticastAddress(remoteAddr) || header.IsV6MulticastAddress(remoteAddr)
-	needRoute := !(isBroadcast || isMulticast || header.IsV6LinkLocalAddress(remoteAddr))
+	needRoute := !(isLocalBroadcast || isMulticast || header.IsV6LinkLocalAddress(remoteAddr))
 	if id != 0 && !needRoute {
 		if nic, ok := s.nics[id]; ok && nic.enabled() {
 			if ref := s.getRefEP(nic, localAddr, remoteAddr, netProto); ref != nil {
-				return makeRoute(netProto, ref.ep.ID().LocalAddress, remoteAddr, nic.linkEP.LinkAddress(), ref, s.handleLocal && !nic.isLoopback(), multicastLoop && !nic.isLoopback()), nil
+				r := makeRoute(netProto, ref.ep.ID().LocalAddress, remoteAddr, nic.linkEP.LinkAddress(), ref, s.handleLocal && !nic.isLoopback(), multicastLoop && !nic.isLoopback())
+				if isLocalBroadcast {
+					r.broadcast = true
+					r.RemoteLinkAddress = header.EthernetBroadcastAddress
+				}
+				return r, nil
 			}
 		}
 	} else {
@@ -1301,9 +1306,19 @@ func (s *Stack) FindRoute(id tcpip.NICID, localAddr, remoteAddr tcpip.Address, n
 					}
 
 					r := makeRoute(netProto, ref.ep.ID().LocalAddress, remoteAddr, nic.linkEP.LinkAddress(), ref, s.handleLocal && !nic.isLoopback(), multicastLoop && !nic.isLoopback())
-					if needRoute {
-						r.NextHop = route.Gateway
+					broadcast := isLocalBroadcast || route.Destination.IsBroadcast(remoteAddr)
+					if broadcast {
+						r.broadcast = true
 					}
+
+					if len(route.Gateway) > 0 {
+						if needRoute {
+							r.NextHop = route.Gateway
+						}
+					} else if broadcast {
+						r.RemoteLinkAddress = header.EthernetBroadcastAddress
+					}
+
 					return r, nil
 				}
 			}

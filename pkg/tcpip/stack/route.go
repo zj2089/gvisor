@@ -48,6 +48,9 @@ type Route struct {
 
 	// Loop controls where WritePacket should send packets.
 	Loop PacketLooping
+
+	// broadcast indicates whether this route is sending a broadcast packet.
+	broadcast bool
 }
 
 // makeRoute initializes a new route. It takes ownership of the provided
@@ -273,6 +276,11 @@ func (r *Route) MakeLoopedRoute() Route {
 // Stack returns the instance of the Stack that owns this route.
 func (r *Route) Stack() *Stack {
 	return r.ref.stack()
+}
+
+// IsBroadcast returns true if the route is to send a broadcast packet.
+func (r *Route) IsBroadcast() bool {
+	return r.broadcast
 }
 
 // ReverseRoute returns new route with given source and destination address.
